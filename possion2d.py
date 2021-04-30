@@ -9,6 +9,7 @@ import time
 import pyamg
 
 
+
 OFFSET_INSTRUCTIONS = "Mark the same blending position on both images and press Enter "
 
 
