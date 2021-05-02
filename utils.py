@@ -12,6 +12,12 @@ DEFAULT_SIZE = 512
 
 
 def get_offset(target, src):
+    """
+    generate offset between target and source image
+    :param target: target image
+    :param src: source image
+    :return: center of ROI offset - target.x - source.x, target.y - source.y
+    """
     global posList
     posList = []
 
@@ -25,7 +31,7 @@ def get_offset(target, src):
     while image is not None:
         cv2.imshow(OFFSET_INSTRUCTIONS, image)
         key = cv2.waitKey(0)
-        # if the 'r' key is pressed, reset the cropping region
+        # ord(enter) is 13
         if key == 13:
             image = exposure.rescale_intensity(src) if current == "target" else None
             current = "source" if current == "target" else None
@@ -35,6 +41,12 @@ def get_offset(target, src):
 
 
 def laplacian_matrix(n, m):
+    """
+    create 2d laplacian matrix
+    :param n: rows number
+    :param m: columns number
+    :return: 2d laplacian matrix with shape (n*m, n*m)
+    """
     mat_D = scipy.sparse.lil_matrix((m, m))
     mat_D.setdiag(-1, -1)
     mat_D.setdiag(4)
@@ -48,6 +60,13 @@ def laplacian_matrix(n, m):
 
 
 def laplacian_3d_matrix(n,m,k):
+    """
+    create 3d laplacian matrix
+    :param n: row number
+    :param m: column number
+    :param k: depth number
+    :return: laplacian matrix with shape (n*m*k, n*m*k)
+    """
     N = n*m*k
     main_diagonal = np.ones(N) * 6
     diagonals = [main_diagonal]
@@ -59,12 +78,11 @@ def laplacian_3d_matrix(n,m,k):
             zero_ind = np.array([i *m * n - j for i in
                                  range(1, N // (m * n))
                                  for j in range(m, 0, -1)])
-        elif abs(diagonal_pos) == m * n:
-            zero_ind = np.array([i * k * m * n - j for i in
-                                 range(1, N // (k * m * n))
-                                 for j in range(m * n, 0, -1)])
-        else:
+        elif abs(diagonal_pos) == 1:
             zero_ind = np.arange(n - 1, N - n, m)
+
+        else:
+            zero_ind = np.array([])
         if len(zero_ind):
             if diagonal_pos > 0:
                 diagonal[zero_ind + diagonal_pos] = 0
@@ -76,19 +94,53 @@ def laplacian_3d_matrix(n,m,k):
     return mat
 
 
+def flatten_3d_to_1d(arr):
+    """
+    flatt an array in the order (x,y,z)
+    :param arr: 3d arr
+    :return: 1d array where result[z*shape[x]*shape[y] + y*shape[x] + x] = original[x,y,z]
+    """
+    n = arr.shape[2]*arr.shape[1]*arr.shape[0]
+    res = np.zeros(n)
+    for i in range(arr.shape[2]):
+        for j in range(arr.shape[1]):
+            cur = i * arr.shape[1]*arr.shape[0] + j * arr.shape[1]
+            res[cur: cur+arr.shape[1]] = arr[j,:,i]
+    return np.array(res)
 
-def solve(A, P, positions_from_target, region_size, region_source, region_target, src, target, channel=None):
-    t = target[region_target[0]:region_target[2], region_target[1]:region_target[3], channel]
-    s = src[region_source[0]:region_source[2], region_source[1]:region_source[3], channel]
-    t = t.flatten()
-    s = s.flatten()
+
+def reshape_1d_to_3d(arr, size):
+    """
+    reshape 1d array to 3d in (x,y,z) order
+    :param arr: 1d array
+    :param size: 3 elements tuple of new size
+    :return: 3d array where result[x,y,z] = original[z*shape[x]*shape[y] + y*shape[x] + x]
+    """
+    res = np.zeros(size)
+    for i in range(size[2]):
+        print(i-1 * size[1] * size[0])
+        s = arr[i * size[1] * size[0]:i * size[1] * size[0]]
+        res[:,:,i] = arr[i * size[1] * size[0]:(i+1) * size[1] * size[0]].reshape((size[0], size[1]))
+    return res
+
+
+def solve(A, P, t,s, positions_from_target):
+    """
+    
+    :param A:
+    :param P:
+    :param t:
+    :param s:
+    :param positions_from_target:
+    :return:
+    """
     b = P * s
     b[positions_from_target] = t[positions_from_target]
-    # solve Ax = b
     x = scipy.sparse.linalg.spsolve(A, b)
-    x = np.reshape(x, region_size)
-    x = np.clip(x, 0, 255)
-    x = np.array(x, target.dtype)
+    x[positions_from_target] = t[positions_from_target]
+    # x = np.reshape(x, region_size)
+    # x = np.clip(x, 0, 255)
+    # x = np.array(x, target.dtype)
     return x
 
 

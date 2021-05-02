@@ -9,6 +9,14 @@ import pyamg
 
 
 def poisson_blend(target, src, mask, offset):
+    """
+    implement poisson blending in 2d
+    :param target: target image (in which we blend)
+    :param src: source image (from which we take the blending object)
+    :param mask: mask of the ROI - region for blending
+    :param offset: offset between target and
+    :return: target image with the object from source blended inside ROI
+    """
     region_source = (
         max(-offset[0], 0),
         max(-offset[1], 0),
@@ -26,7 +34,6 @@ def poisson_blend(target, src, mask, offset):
 
     positions = np.where(mask)
     positions = (positions[0] * region_size[1]) + positions[1]
-    # positions2 = np.where(mask.flatten())[0]
 
     # n = number of element in region of blending
     n = np.prod(region_size)
@@ -54,10 +61,20 @@ def poisson_blend(target, src, mask, offset):
     positions_from_target = np.where(mask.flatten() == 0)[0]
     if len(target.shape) > 2:
         for channel in range(target.shape[2]):
-            x = solve(A, P, positions_from_target, region_size, region_source, region_target, src, target, channel)
+            t = target[region_target[0]:region_target[2], region_target[1]:region_target[3], channel]
+            s = src[region_source[0]:region_source[2], region_source[1]:region_source[3], channel]
+            t = t.flatten()
+            s = s.flatten()
+            x = solve(A, P, t,s, positions_from_target, region_size)
+            x = np.reshape(x, region_size)
             target[region_target[0]:region_target[2], region_target[1]:region_target[3], channel] = x
     else:
-        x = solve(A, P, positions_from_target, region_size, region_source, region_target, src, target)
+        t = target[region_target[0]:region_target[2], region_target[1]:region_target[3]]
+        s = src[region_source[0]:region_source[2], region_source[1]:region_source[3]]
+        t = t.flatten()
+        s = s.flatten()
+        x = solve(A, P, t, s, positions_from_target, region_size)
+        x = np.reshape(x, region_size)
         target[region_target[0]:region_target[2], region_target[1]:region_target[3]] = x
     return target
 
@@ -65,10 +82,12 @@ def poisson_blend(target, src, mask, offset):
 def run(target_path,src_path, mask_path=None):
     src = cv2.imread(src_path)
     target = cv2.imread(target_path)
-    plt.imshow(target)
-    plt.show()
-    plt.imshow(src)
-    plt.show()
+    src = cv2.resize(src, (400,600))
+    target = cv2.resize(target, (400,600))
+    # plt.imshow(target)
+    # plt.show()
+    # plt.imshow(src)
+    # plt.show()
     # if src.shape[0] > target.shape[0] or src.shape[1] > target.shape[1]:
     #     src = cv2.resize(src, (target.shape[1], target.shape[1]))
     if mask_path is None:
@@ -79,15 +98,12 @@ def run(target_path,src_path, mask_path=None):
     print(offset)
     if mask is not None:
         new_target = poisson_blend(target, src, mask, offset)
-        # cv_clone = cv2.seamlessClone(src, target, mask, center_target, cv2.NORMAL_CLONE)
+        # cv_clone = cv2.seamlessClone(src, target, mask, (200,300), cv2.NORMAL_CLONE)
         # new_target = cv2.cvtColor(new_target, cv2.COLOR_BGR2RGB)
         plt.imshow(new_target[:, :, ::-1])
         plt.show()
-        plt.imshow(src)
-        plt.show()
-        # plt.imshow(cv_clone[:,:,::-1])
-        # plt.show()
+
 
 
 if __name__ == "__main__":
-    run("boddha.jfif", "lena.png")
+    run("boddha.jfif", "lena.png", "mask.png")
