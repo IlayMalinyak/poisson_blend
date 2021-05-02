@@ -31,8 +31,7 @@ def get_offset(target, src):
     while image is not None:
         cv2.imshow(OFFSET_INSTRUCTIONS, image)
         key = cv2.waitKey(0)
-        # ord(enter) is 13
-        if key == 13:
+        if key == 13:  # Enter hit
             image = exposure.rescale_intensity(src) if current == "target" else None
             current = "source" if current == "target" else None
 
@@ -75,7 +74,7 @@ def laplacian_3d_matrix(n,m,k):
                          m*n]:
         diagonal = np.ones(N) * -1
         if abs(diagonal_pos) == m:
-            zero_ind = np.array([i *m * n - j for i in
+            zero_ind = np.array([i * m * n - j for i in
                                  range(1, N // (m * n))
                                  for j in range(m, 0, -1)])
         elif abs(diagonal_pos) == 1:
@@ -105,7 +104,7 @@ def flatten_3d_to_1d(arr):
     for i in range(arr.shape[2]):
         for j in range(arr.shape[1]):
             cur = i * arr.shape[1]*arr.shape[0] + j * arr.shape[1]
-            res[cur: cur+arr.shape[1]] = arr[j,:,i]
+            res[cur: cur+arr.shape[1]] = arr[j, :, i]
     return np.array(res)
 
 
@@ -120,11 +119,11 @@ def reshape_1d_to_3d(arr, size):
     for i in range(size[2]):
         print(i-1 * size[1] * size[0])
         s = arr[i * size[1] * size[0]:i * size[1] * size[0]]
-        res[:,:,i] = arr[i * size[1] * size[0]:(i+1) * size[1] * size[0]].reshape((size[0], size[1]))
+        res[:, :, i] = arr[i * size[1] * size[0]:(i+1) * size[1] * size[0]].reshape((size[0], size[1]))
     return res
 
 
-def solve(A, P, t,s, positions_from_target):
+def solve(A, P, t, s, positions_from_target):
     """
     solve the poisson equation. for detailed information look at "Poisson image editing" Perez et al.
     :param A: laplacian operator matrix inside ROI, identity elsewhere
@@ -138,9 +137,6 @@ def solve(A, P, t,s, positions_from_target):
     b[positions_from_target] = t[positions_from_target]
     x = scipy.sparse.linalg.spsolve(A, b)
     x[positions_from_target] = t[positions_from_target]
-    # x = np.reshape(x, region_size)
-    # x = np.clip(x, 0, 255)
-    # x = np.array(x, target.dtype)
     return x
 
 
@@ -170,10 +166,10 @@ def create_3d_mask(src, representative=-1):
     if representative == -1:
         for i in range(src.shape[2]):
             pd = PolygonDrawer()
-            mask[:,:,i] = pd.run(src[:,:,i], "slice number %d" % i)
+            mask[:, :, i] = pd.run(src[:, :, i], "slice number %d" % i)
     else:
         pd = PolygonDrawer()
-        rep = pd.run(src[:,:, representative], "representative slice - %d" % representative)
+        rep = pd.run(src[:, :, representative], "representative slice - %d" % representative)
         mask = np.repeat(rep[..., None], src.shape[2], axis=2)
     return mask
 
@@ -192,23 +188,19 @@ class PolygonDrawer(object):
     def on_mouse(self, event, x, y, buttons, user_param):
         # Mouse callback that gets called for every mouse event (i.e. moving, clicking, etc.)
 
-        if self.done:  # Nothing more to do
+        if self.done:
             return
 
         if event == cv2.EVENT_MOUSEMOVE:
-            # We want to be able to draw the line-in-progress, so update current mouse position
             self.current = (x, y)
         elif event == cv2.EVENT_LBUTTONDOWN:
             # Left click means adding a point at current position to the list of points
-            # print("Adding point #%d with position(%d,%d)" % (len(self.points), x, y))
             self.points.append((x, y))
         elif event == cv2.EVENT_RBUTTONDOWN:
             # Right click means we're done
-            # print("Completing polygon with %d points." % len(self.points))
             self.done = True
 
     def run(self, image, window_name):
-        # Let's create our working window and set a mouse callback to handle events
         cv2.namedWindow(window_name)
         cv2.imshow(window_name, image)
         cv2.waitKey(1)
@@ -225,23 +217,17 @@ class PolygonDrawer(object):
                 cv2.polylines(copy_im, np.array([self.points]).astype(np.int32), False, FINAL_LINE_COLOR, 2)
                 # And  also show what the current segment would look like
                 cv2.line(copy_im, self.points[-1], self.current, WORKING_LINE_COLOR)
-            # Update the window
             cv2.imshow(window_name, copy_im)
-            # And wait 50ms before next iteration (this will pump window messages meanwhile)
             if cv2.waitKey(50) == 13:  # Enter hit
                 self.done = True
 
-        # User finised entering the polygon points, so let's make the final drawing
         canvas = np.zeros((image.shape[:2]), np.uint8)
-        # of a filled polygon
         if (len(self.points) > 0):
             resized_points = np.array([self.points]) / np.array([self.factor_x, self.factor_y])
             cv2.fillPoly(canvas,resized_points.astype(np.int32) , FINAL_LINE_COLOR)
-        # And show it
         canvas = cv2.GaussianBlur(canvas, (5, 5), 0)
         _, canvas = cv2.threshold(canvas, 1, 255, cv2.THRESH_BINARY)
         cv2.imshow(window_name, canvas)
-        # Waiting for the user to press any key
         cv2.waitKey()
         cv2.destroyWindow(window_name)
         return canvas

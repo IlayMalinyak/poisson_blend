@@ -27,12 +27,14 @@ def poisson_blend(target, src, mask, offset):
     mask[mask == 0] = False
     mask[mask != False] = True
 
+    # find ROI (region in which we solve poisson eq.)
     positions = np.where(mask)
     positions = (positions[0] * region_size[1]) + positions[1]
 
     # n = number of element in region of blending
     n = np.prod(region_size)
 
+    # creating the diagonals of the coefficient matrix
     main_diagonal = np.ones(n)
     main_diagonal[positions] = 4
     diagonals = [main_diagonal]
@@ -54,22 +56,24 @@ def poisson_blend(target, src, mask, offset):
     P = pyamg.gallery.poisson(mask.shape)
 
     positions_from_target = np.where(mask.flatten() == 0)[0]
-    if len(target.shape) > 2:
+    if len(target.shape) > 2:  # rgb image
         for channel in range(target.shape[2]):
             t = target[region_target[0]:region_target[2], region_target[1]:region_target[3], channel]
             s = src[region_source[0]:region_source[2], region_source[1]:region_source[3], channel]
             t = t.flatten()
             s = s.flatten()
-            x = solve(A, P, t,s, positions_from_target)
+            x = solve(A, P, t, s, positions_from_target)
             x = np.reshape(x, region_size)
+            x = np.clip(x, 0, 255)
             target[region_target[0]:region_target[2], region_target[1]:region_target[3], channel] = x
-    else:
+    else:  # grayscale image
         t = target[region_target[0]:region_target[2], region_target[1]:region_target[3]]
         s = src[region_source[0]:region_source[2], region_source[1]:region_source[3]]
         t = t.flatten()
         s = s.flatten()
         x = solve(A, P, t, s, positions_from_target)
         x = np.reshape(x, region_size)
+        x = np.clip(x, 0, 255)
         target[region_target[0]:region_target[2], region_target[1]:region_target[3]] = x
     return target
 
@@ -77,14 +81,6 @@ def poisson_blend(target, src, mask, offset):
 def run(target_path,src_path, mask_path=None):
     src = cv2.imread(src_path)
     target = cv2.imread(target_path)
-    src = cv2.resize(src, (400,600))
-    target = cv2.resize(target, (400,600))
-    # plt.imshow(target)
-    # plt.show()
-    # plt.imshow(src)
-    # plt.show()
-    # if src.shape[0] > target.shape[0] or src.shape[1] > target.shape[1]:
-    #     src = cv2.resize(src, (target.shape[1], target.shape[1]))
     if mask_path is None:
         mask = create_2d_mask(src, "mask")
     else:
@@ -92,13 +88,13 @@ def run(target_path,src_path, mask_path=None):
     offset = get_offset(target, src)
     print(offset)
     if mask is not None:
-        new_target = poisson_blend(target, src, mask, offset)
-        # cv_clone = cv2.seamlessClone(src, target, mask, (200,300), cv2.NORMAL_CLONE)
-        # new_target = cv2.cvtColor(new_target, cv2.COLOR_BGR2RGB)
-        plt.imshow(new_target[:, :, ::-1])
+        target = poisson_blend(target, src, mask, offset)
+        plt.imshow(target[:, :, ::-1])
         plt.show()
+        plt.imsave("results/blend_2d.png", target[:, :, ::-1])
+        plt.imsave("results/mask_blend_2d.png", mask, cmap='gray')
 
 
 
 if __name__ == "__main__":
-    run("boddha.jfif", "lena.png", "mask.png")
+    run("obama.jfif", "trump2.jfif")

@@ -32,9 +32,9 @@ def poisson_blend(target, src, mask, offset):
     mask = mask[region_source[0]:region_source[2], region_source[1]:region_source[3], :]
     mask[mask == 0] = False
     mask[mask != False] = True
-
-    # find the ROI (region in which we solve poisson eq.) because numpy flattening method is column major (flatten z,x,y)
-    # and the laplacian operator matrix is flatten (x,y,z) we need to swap the axes befoer flattening
+    # find the ROI (region in which we solve poisson eq.) because numpy flattening method is column major
+    # (flatten in z,x,y order) and the laplacian operator matrix is flatten (x,y,z order)
+    # we need to swap the axes before flattening
     positions = np.where(np.transpose(mask, (2,0,1)).flatten())[0]
 
     # n = number of element in region of blending col size of coefficient matrix
@@ -98,14 +98,23 @@ def run(target_path, src_path, mask_path=None, rep=-1):
     target = np.load(target_path)
     if mask_path is None:
         mask = create_3d_mask(src, rep)
-        np.save( "mask_3d", mask)
+        np.save("mask_3d", mask)
     else:
         mask = np.load(mask_path)
     offset = get_offset(target[:,:,0], src[:,:,0])
     if mask is not None:
-        new_target = poisson_blend(target[...,::], src[...,::], mask[...,::], offset)
+        new_target = poisson_blend(target[...,:23], src[...,::], mask[...,::], offset)
         display_axial(new_target, 1)
 
 
 if __name__ == "__main__":
-   run("obj_3d.npy", "obj_3d_small.npy", "mask_3d.npy", rep=9)
+    # mask = np.load("mask_3d.npy")
+    # target = np.load("obj_3d.npy")
+    # src = np.load("obj_3d_small.npy")
+    # slice_m = mask[:,:,9]
+    # slice_s = src[:,:,9]
+    # slice_t = target[:,:,9]
+    # plt.imsave("results/3d_mask_slice.png", slice_m, cmap='gray')
+    # plt.imsave("results/3d_source_slice.png", slice_s, cmap='gray')
+    # plt.imsave("results/3d_target_slice.png", slice_t, cmap='gray')
+    run("obj_3d.npy", "obj_3d_small.npy", rep=9)
