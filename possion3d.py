@@ -1,12 +1,5 @@
 import scipy.sparse
-import numpy as np
-from scipy.sparse.linalg import spsolve
-import create_mask
-from matplotlib import pyplot as plt
 from utils import *
-import pyamg
-import possion2d
-import cv2
 
 
 def poisson_blend(target, src, mask, offset):
@@ -88,8 +81,8 @@ def poisson_blend(target, src, mask, offset):
     x = solve(A, P, t, s, positions_from_target)
     x = np.array(x, target.dtype)
     x = reshape_1d_to_3d(x, mask.shape)
+    x = np.clip(x, np.min(t[positions]), np.max(t[positions]))
     target[region_target[0]:region_target[2], region_target[1]:region_target[3], :region_size[2]] = x
-
     return target
 
 
@@ -103,18 +96,9 @@ def run(target_path, src_path, mask_path=None, rep=-1):
         mask = np.load(mask_path)
     offset = get_offset(target[:,:,0], src[:,:,0])
     if mask is not None:
-        new_target = poisson_blend(target[...,:23], src[...,::], mask[...,::], offset)
+        new_target = poisson_blend(target[...,:30], src[...,:10], mask[...,:10], offset)
         display_axial(new_target, 1)
 
 
 if __name__ == "__main__":
-    # mask = np.load("mask_3d.npy")
-    # target = np.load("obj_3d.npy")
-    # src = np.load("obj_3d_small.npy")
-    # slice_m = mask[:,:,9]
-    # slice_s = src[:,:,9]
-    # slice_t = target[:,:,9]
-    # plt.imsave("results/3d_mask_slice.png", slice_m, cmap='gray')
-    # plt.imsave("results/3d_source_slice.png", slice_s, cmap='gray')
-    # plt.imsave("results/3d_target_slice.png", slice_t, cmap='gray')
-    run("obj_3d.npy", "obj_3d_small.npy", rep=9)
+    run("obj_3d.npy", "obj_3d_small.npy", "mask_3d.npy", rep=9)

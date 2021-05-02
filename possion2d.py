@@ -95,6 +95,5 @@ def run(target_path,src_path, mask_path=None):
         plt.imsave("results/mask_blend_2d.png", mask, cmap='gray')
 
 
-
 if __name__ == "__main__":
-    run("obama.jfif", "trump2.jfif")
+    run("obama.jfif", "trump2.jfif", "mask.png")
