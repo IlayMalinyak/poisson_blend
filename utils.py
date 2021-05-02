@@ -126,13 +126,13 @@ def reshape_1d_to_3d(arr, size):
 
 def solve(A, P, t,s, positions_from_target):
     """
-    
-    :param A:
-    :param P:
-    :param t:
-    :param s:
-    :param positions_from_target:
-    :return:
+    solve the poisson equation. for detailed information look at "Poisson image editing" Perez et al.
+    :param A: laplacian operator matrix inside ROI, identity elsewhere
+    :param P: laplacian operator matrix
+    :param t: 1d flatten array of target
+    :param s: 1d flatten array of source
+    :param positions_from_target: positions where A is identity
+    :return: x - 1d array that solve the equation
     """
     b = P * s
     b[positions_from_target] = t[positions_from_target]
@@ -145,6 +145,12 @@ def solve(A, P, t,s, positions_from_target):
 
 
 def create_2d_mask(source, fname):
+    """
+    create 2d mask interactively
+    :param source: source image
+    :param fname: path for saving
+    :return: mask if the process succeed, None else
+    """
     pd = PolygonDrawer()
     mask = pd.run(source, "create mask")
     if mask is not None and fname:
@@ -154,6 +160,12 @@ def create_2d_mask(source, fname):
 
 
 def create_3d_mask(src, representative=-1):
+    """
+    create 3d mask interactively - either slice by slice or with representative slice that will be applied to all slices
+    :param src: source image
+    :param representative: representative slice, if -1, will be done slice by slice
+    :return: mask if the process succeed, None else
+    """
     mask = np.zeros(src.shape)
     if representative == -1:
         for i in range(src.shape[2]):
@@ -167,6 +179,9 @@ def create_3d_mask(src, representative=-1):
 
 
 class PolygonDrawer(object):
+    """
+    class for mask interactively drawing
+    """
     def __init__(self):
         self.done = False  # Flag signalling we're done
         self.current = (0, 0)  # Current position, so we can draw the line-in-progress
@@ -205,12 +220,8 @@ class PolygonDrawer(object):
             copy_im = cv2.resize(copy_im, (int(w * self.factor_x), int(h * self.factor_y)))
         copy_im = exposure.rescale_intensity(copy_im)
         while (not self.done):
-            # This is our drawing loop, we just continuously draw new images
-            # and show them in the named window
-            # canvas = np.zeros(image.shape(), np.uint8)
             if (len(self.points) > 0):
                 # Draw all the current polygon segments
-                # cv2.polylines(canvas, np.array([self.points]), False, FINAL_LINE_COLOR, 1)
                 cv2.polylines(copy_im, np.array([self.points]).astype(np.int32), False, FINAL_LINE_COLOR, 2)
                 # And  also show what the current segment would look like
                 cv2.line(copy_im, self.points[-1], self.current, WORKING_LINE_COLOR)
@@ -237,13 +248,14 @@ class PolygonDrawer(object):
 
 
 class IndexTracker(object):
-    def __init__(self, ax, X, contours=None, seeds=None, aspect=1):
+    """
+    class for interactive DICOM view
+    """
+    def __init__(self, ax, X, aspect=1):
         self.ax = ax
         ax.set_title('Scroll to Navigate through the DICOM Image Slices')
 
         self.X = X
-        self.contours = contours
-        self.seeds = seeds
         if len(X.shape) == 3:
             rows, cols, self.slices = X.shape
             self.channels = 0
@@ -251,14 +263,10 @@ class IndexTracker(object):
             rows, cols, self.channels, self.slices = X.shape
         self.ind = self.slices//2
         self.im = ax.imshow(self.X[..., self.ind], cmap='gray')
-        self.struct = ax.imshow(self.contours[..., self.ind], cmap='cool', interpolation='none',
-                                alpha=0.7) if self.contours is not None else None
-        # draw_seeds_mask(ax, X, seeds_position)
-        self.plan = ax.imshow(self.seeds[..., self.ind]) if self.seeds is not None else None
         ax.set_aspect(aspect)
         self.update()
 
-    def onscroll(self, event):
+    def on_scroll(self, event):
         print("%s %s" % (event.button, event.step))
         print(event.key)
         if event.button == 'up':
@@ -275,25 +283,22 @@ class IndexTracker(object):
             self.ind = (self.ind + 1) % self.slices
         self.update()
 
-
     def update(self):
         self.im.set_data(self.X[..., self.ind])
-        if self.contours is not None:
-            self.struct.set_data(self.contours[:,:, self.ind])
-        if self.seeds is not None:
-            self.plan.set_data(self.seeds[:,:, self.ind])
         self.ax.set_ylabel('Slice Number: %s' % self.ind)
-        # cid = self.ax.canvas.mpl_connect('key_press_event', self.on_key)
         self.im.axes.figure.canvas.draw()
 
 
-def display_axial(arr, contours, seeds, aspect, ax=None):
+def display_axial(arr, aspect, ax=None):
+    """
+    display DICOM in the axial plane
+    :param arr: images - 3d numpy array
+    :param aspect: aspect ratio
+    :param ax: figure to plot the DICOM. if None a new one is created
+    """
     if ax is None:
         fig, ax = plt.subplots(1, 1)
-    masked_contour_arr = np.ma.masked_where(contours == 0, contours) if contours is not None else None
-    # masked_seed_arr = np.ma.masked_where(seeds == 255, seeds) if seeds is not None else None
-    tracker = IndexTracker(ax, arr, masked_contour_arr, seeds, aspect)
-    fig.canvas.mpl_connect('scroll_event', tracker.onscroll)
+    tracker = IndexTracker(ax, arr, aspect)
+    fig.canvas.mpl_connect('scroll_event', tracker.on_scroll)
     fig.canvas.mpl_connect('key_press_event', tracker.on_key)
-
     plt.show()

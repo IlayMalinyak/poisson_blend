@@ -85,7 +85,7 @@ def poisson_blend(target, src, mask, offset):
     s = src[region_source[0]:region_source[2], region_source[1]:region_source[3], :]
     t = np.transpose(t, (2,0,1)).flatten()
     s = np.transpose(s, (2,0,1)).flatten()
-    x = solve(A, P, t, s, positions_from_target, region_size)
+    x = solve(A, P, t, s, positions_from_target)
     x = np.array(x, target.dtype)
     x = reshape_1d_to_3d(x, mask.shape)
     target[region_target[0]:region_target[2], region_target[1]:region_target[3], :region_size[2]] = x
@@ -96,39 +96,15 @@ def poisson_blend(target, src, mask, offset):
 def run(target_path, src_path, mask_path=None, rep=-1):
     src = np.load(src_path)
     target = np.load(target_path)
-    # src += 1000
     if mask_path is None:
-        # mask =[]
         mask = create_3d_mask(src, rep)
         np.save( "mask_3d", mask)
-        display_axial(mask, None, None, 1)
     else:
         mask = np.load(mask_path)
-        # mask = cv2.imread(mask_path)
-    # offset = get_offset(target[:,:,0], src[:,:,0])
-    # print(offset)
+    offset = get_offset(target[:,:,0], src[:,:,0])
     if mask is not None:
-        # mask = np.ones(src.shape)
-        # src = src[:10,:10, :]
-        # mask = create_3d_mask(src, rep)
-        # np.save("mask_3d_small", mask)
-        new_target = poisson_blend(target[...,:30], src, mask, (80,75))
-        # for slice in range(5):
-        #     target[:,:,slice] = possion2d.poisson_blend(target[:,:,slice], src[...,5], mask[...,slice], offset)
-        slice_src = cv2.resize(src[...,9], (512,512))
-        slice_target = cv2.resize(target[...,9], (512,512))
-        # slice_mask = create_2d_mask(slice_src, "mask_slice")
-        # new_target = possion2d.poisson_blend(slice_target,  slice_src, slice_mask, (100,100))
-        # new_target_2 = cv2.seamlessClone(slice_src, slice_target, slice_mask, (200,200), flags=cv2.NORMAL_CLONE)
-        # plt.imshow(new_target, cmap='gray')
-        # plt.show()
-        # plt.imshow(src[...,9], cmap='gray')
-        # plt.show()
-        # plt.imshow(new_target_2[...,9], cmap='gray')
-        # plt.title("cv2")
-        # plt.show()
-        display_axial(src, None, None, 1)
-        display_axial(new_target, None, None, 1)
+        new_target = poisson_blend(target[...,::], src[...,::], mask[...,::], offset)
+        display_axial(new_target, 1)
 
 
 if __name__ == "__main__":

@@ -1,9 +1,4 @@
 import scipy.sparse
-import numpy as np
-from scipy.sparse.linalg import spsolve
-import create_mask
-import cv2
-from matplotlib import pyplot as plt
 from utils import *
 import pyamg
 
@@ -65,7 +60,7 @@ def poisson_blend(target, src, mask, offset):
             s = src[region_source[0]:region_source[2], region_source[1]:region_source[3], channel]
             t = t.flatten()
             s = s.flatten()
-            x = solve(A, P, t,s, positions_from_target, region_size)
+            x = solve(A, P, t,s, positions_from_target)
             x = np.reshape(x, region_size)
             target[region_target[0]:region_target[2], region_target[1]:region_target[3], channel] = x
     else:
@@ -73,7 +68,7 @@ def poisson_blend(target, src, mask, offset):
         s = src[region_source[0]:region_source[2], region_source[1]:region_source[3]]
         t = t.flatten()
         s = s.flatten()
-        x = solve(A, P, t, s, positions_from_target, region_size)
+        x = solve(A, P, t, s, positions_from_target)
         x = np.reshape(x, region_size)
         target[region_target[0]:region_target[2], region_target[1]:region_target[3]] = x
     return target
