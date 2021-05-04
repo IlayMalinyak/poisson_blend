@@ -3,6 +3,7 @@ import scipy
 import numpy as np
 from matplotlib import pyplot as plt
 from skimage import exposure
+from scipy.sparse.linalg import spsolve
 
 
 OFFSET_INSTRUCTIONS = "Mark the same blending position on both images and press Enter "
@@ -16,7 +17,7 @@ def get_offset(target, src):
     generate offset between target and source image
     :param target: target image
     :param src: source image
-    :return: center of ROI offset - target.x - source.x, target.y - source.y
+    :return: center of ROI offset is: target.x - source.x, target.y - source.y
     """
     global posList
     posList = []
@@ -135,7 +136,7 @@ def solve(A, P, t, s, positions_from_target):
     """
     b = P * s
     b[positions_from_target] = t[positions_from_target]
-    x = scipy.sparse.linalg.spsolve(A, b)
+    x = spsolve(A, b)
     x[positions_from_target] = t[positions_from_target]
     return x
 

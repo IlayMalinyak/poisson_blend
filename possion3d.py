@@ -68,6 +68,7 @@ def poisson_blend(target, src, mask, offset):
 
         diagonals.append(diagonal)
         diagonals_positions.append(diagonal_pos)
+
     P = laplacian_3d_matrix(region_size[0], region_size[1], region_size[2])  # pyamg is not good here
     A = scipy.sparse.spdiags(diagonals, diagonals_positions, n, n, 'csr')
 
@@ -81,7 +82,6 @@ def poisson_blend(target, src, mask, offset):
     x = solve(A, P, t, s, positions_from_target)
     x = np.array(x, target.dtype)
     x = reshape_1d_to_3d(x, mask.shape)
-    x = np.clip(x, np.min(t[positions]), np.max(t[positions]))
     target[region_target[0]:region_target[2], region_target[1]:region_target[3], :region_size[2]] = x
     return target
 
@@ -96,7 +96,7 @@ def run(target_path, src_path, mask_path=None, rep=-1):
         mask = np.load(mask_path)
     offset = get_offset(target[:,:,0], src[:,:,0])
     if mask is not None:
-        new_target = poisson_blend(target[...,:30], src[...,:10], mask[...,:10], offset)
+        new_target = poisson_blend(target[...,:30], src, mask, offset)
         display_axial(new_target, 1)
 
 

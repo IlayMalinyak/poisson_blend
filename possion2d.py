@@ -42,7 +42,7 @@ def poisson_blend(target, src, mask, offset):
 
     for diagonal_pos in [-1, 1, -region_size[1], region_size[1]]:
         in_bounds_indices = None
-        if np.any(positions + diagonal_pos > n):
+        if np.any(positions + diagonal_pos >= n):
             in_bounds_indices = np.where(positions + diagonal_pos < n)[0]
         elif np.any(positions + diagonal_pos < 0):
             in_bounds_indices = np.where(positions + diagonal_pos >= 0)[0]
@@ -52,6 +52,7 @@ def poisson_blend(target, src, mask, offset):
         diagonal[in_bounds_positions + diagonal_pos] = -1
         diagonals.append(diagonal)
         diagonals_positions.append(diagonal_pos)
+
     A = scipy.sparse.spdiags(diagonals, diagonals_positions, n, n, 'csr')
     P = pyamg.gallery.poisson(mask.shape)
 
